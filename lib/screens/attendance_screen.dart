@@ -205,6 +205,14 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       final res = await ApiService.post(endPoint, securityData);
 
       if (res.statusCode == 200 || res.statusCode == 201) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text("Attendance Marked Successfully!"),
+            backgroundColor: Colors.green,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
         await fetchAttendance();
       } else {
         final msg =
