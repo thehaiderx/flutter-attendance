@@ -10,6 +10,7 @@ import '../services/api_service.dart';
 import 'login_screen.dart';
 import 'dart:html' as html;
 import 'dart:async';
+import 'attendance_history_screen.dart'; // Path sahi check karlein
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -316,6 +317,24 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         ),
         Row(
           children: [
+            // --- NEW: History Button ---
+            IconButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AttendanceHistoryScreen(),
+                  ),
+                );
+              },
+              icon: const Icon(
+                Icons.history_rounded,
+                color: Colors.white70,
+                size: 22,
+              ),
+              tooltip: "Attendance History",
+            ),
+            // --------------------------
             IconButton(
               onPressed: fetchAttendance,
               icon: const Icon(Icons.refresh_rounded, color: Colors.white24),
