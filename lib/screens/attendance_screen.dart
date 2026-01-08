@@ -4,13 +4,11 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:geolocator/geolocator.dart'; // Add this
-import 'package:dart_ipify/dart_ipify.dart'; // Add this
+import 'package:geolocator/geolocator.dart'; 
+import 'package:dart_ipify/dart_ipify.dart'; 
 import '../services/api_service.dart';
 import 'login_screen.dart';
-import 'dart:html' as html;
-import 'dart:async';
-import 'attendance_history_screen.dart'; // Path sahi check karlein
+import 'attendance_history_screen.dart';
 
 class AttendanceScreen extends StatefulWidget {
   const AttendanceScreen({super.key});
@@ -38,8 +36,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     fetchAttendance();
   }
 
-  // --- NEW: Helper to get security data (IP & Location) ---
-
+  // --- FIXED: Location logic for Mobile (Android/iOS) ---
   Future<Map<String, dynamic>> _getSecurityPayload() async {
     double lat = 0.0;
     double lng = 0.0;
@@ -52,40 +49,34 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       debugPrint("IP Error: $e");
     }
 
-    // 2. Browser Native Location (Bypassing the buggy plugin for Web)
+    // 2. Mobile Native Location (Using Geolocator)
     try {
-      // Hum Completer use karenge taake browser ke callback ka wait kar sakein
-      final completer = Completer<html.Geoposition>();
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        debugPrint("Location services disabled");
+      } else {
+        LocationPermission permission = await Geolocator.checkPermission();
+        if (permission == LocationPermission.denied) {
+          permission = await Geolocator.requestPermission();
+        }
 
-      html.window.navigator.geolocation
-          .getCurrentPosition(
-            enableHighAccuracy: true,
-            timeout: const Duration(seconds: 15),
-          )
-          .then((pos) {
-            completer.complete(pos);
-          })
-          .catchError((err) {
-            completer.completeError(err);
-          });
-
-      final htmlPos = await completer.future;
-      lat = htmlPos.coords?.latitude?.toDouble() ?? 0.0;
-      lng = htmlPos.coords?.longitude?.toDouble() ?? 0.0;
-
-      debugPrint("Native Browser Success: $lat, $lng");
+        if (permission == LocationPermission.always || permission == LocationPermission.whileInUse) {
+          Position position = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          );
+          lat = position.latitude;
+          lng = position.longitude;
+          debugPrint("Location Success: $lat, $lng");
+        }
+      }
     } catch (e) {
-      debugPrint("Native Location Error: $e");
-      // Agar user ne 'Block' kiya hua hai toh yahan alert dikhana hoga
+      debugPrint("Location Error: $e");
     }
 
-    // Agar abhi bhi 0 hai toh user ko message dein
-    if (lat == 0.0) {
+    if (lat == 0.0 && mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text(
-            "Location not found! Please check browser permissions.",
-          ),
+          content: Text("Location not found! Please enable GPS."),
           backgroundColor: Colors.red,
         ),
       );
@@ -147,23 +138,18 @@ class _AttendanceScreenState extends State<AttendanceScreen>
 
     if (att['check_in_time'] != null) {
       try {
-        att['in_time_only'] = DateFormat(
-          'hh:mm a',
-        ).format(DateTime.parse(att['check_in_time']));
+        att['in_time_only'] = DateFormat('hh:mm a').format(DateTime.parse(att['check_in_time']));
       } catch (e) {
         att['in_time_only'] = "--:--";
       }
     }
     if (att['check_out_time'] != null) {
       try {
-        att['out_time_only'] = DateFormat(
-          'hh:mm a',
-        ).format(DateTime.parse(att['check_out_time']));
+        att['out_time_only'] = DateFormat('hh:mm a').format(DateTime.parse(att['check_out_time']));
       } catch (e) {
         att['out_time_only'] = "--:--";
       }
     }
-
     return att;
   }
 
@@ -182,51 +168,33 @@ class _AttendanceScreenState extends State<AttendanceScreen>
     }
   }
 
-  // --- UPDATED: Action Button with Security Data ---
   Future<void> _handleAttendanceAction() async {
     setState(() => isLoading = true);
-
-    // 1. Collect Security Data
     final securityData = await _getSecurityPayload();
-
-    if (securityData['latitude'] == null ||
-        securityData['ip_address'] == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Error: Location or IP not detected.")),
-      );
-      setState(() => isLoading = false);
-      return;
-    }
 
     String endPoint = attendance?['check_in_time'] == null
         ? '/attendance/check-in'
         : '/attendance/check-out';
 
     try {
-      // Send securityData in payload
       final res = await ApiService.post(endPoint, securityData);
-
       if (res.statusCode == 200 || res.statusCode == 201) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
+          const SnackBar(
             content: Text("Attendance Marked Successfully!"),
             backgroundColor: Colors.green,
             behavior: SnackBarBehavior.floating,
           ),
         );
-
         await fetchAttendance();
       } else {
-        final msg =
-            jsonDecode(res.body)['message'] ?? "Security verification failed";
+        final msg = jsonDecode(res.body)['message'] ?? "Security verification failed";
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(backgroundColor: Colors.redAccent, content: Text(msg)),
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text("Network Error")));
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Network Error")));
     } finally {
       setState(() => isLoading = false);
     }
@@ -317,50 +285,26 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         ),
         Row(
           children: [
-            // --- NEW: History Button ---
             IconButton(
               onPressed: () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(
-                    builder: (context) => const AttendanceHistoryScreen(),
-                  ),
+                  MaterialPageRoute(builder: (context) => const AttendanceHistoryScreen()),
                 );
               },
-              icon: const Icon(
-                Icons.history_rounded,
-                color: Colors.white70,
-                size: 22,
-              ),
-              tooltip: "Attendance History",
+              icon: const Icon(Icons.history_rounded, color: Colors.white70, size: 22),
             ),
-            // --------------------------
             IconButton(
               onPressed: fetchAttendance,
               icon: const Icon(Icons.refresh_rounded, color: Colors.white24),
             ),
             GestureDetector(
               onTap: _showLogoutDialog,
-              child: Container(
-                padding: const EdgeInsets.all(2),
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.blueAccent.withOpacity(0.3)),
-                ),
-                child: CircleAvatar(
-                  radius: 20,
-                  backgroundColor: Colors.white.withOpacity(0.05),
-                  backgroundImage: (userData?['image_url'] != null)
-                      ? NetworkImage(userData!['image_url'])
-                      : null,
-                  child: (userData?['image_url'] == null)
-                      ? const Icon(
-                          Icons.person,
-                          color: Colors.white24,
-                          size: 20,
-                        )
-                      : null,
-                ),
+              child: CircleAvatar(
+                radius: 20,
+                backgroundColor: Colors.white.withOpacity(0.05),
+                backgroundImage: (userData?['image_url'] != null) ? NetworkImage(userData!['image_url']) : null,
+                child: (userData?['image_url'] == null) ? const Icon(Icons.person, color: Colors.white24, size: 20) : null,
               ),
             ),
           ],
@@ -377,17 +321,13 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         color: Colors.white.withOpacity(0.02),
         borderRadius: BorderRadius.circular(32),
         border: Border.all(
-          color: active
-              ? Colors.blueAccent.withOpacity(0.2)
-              : Colors.white.withOpacity(0.05),
+          color: active ? Colors.blueAccent.withOpacity(0.2) : Colors.white.withOpacity(0.05),
         ),
       ),
       child: Column(
         children: [
           Text(
-            active
-                ? "SESSION ACTIVE"
-                : (finished ? "SHIFT COMPLETED" : "READY TO WORK"),
+            active ? "SESSION ACTIVE" : (finished ? "SHIFT COMPLETED" : "READY TO WORK"),
             style: TextStyle(
               color: active ? Colors.blueAccent : Colors.white38,
               fontSize: 11,
@@ -424,24 +364,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
   Widget _timeLabel(String label, String time) {
     return Column(
       children: [
-        Text(
-          label,
-          style: const TextStyle(
-            color: Colors.white24,
-            fontSize: 9,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 0.5,
-          ),
-        ),
+        Text(label, style: const TextStyle(color: Colors.white24, fontSize: 9, fontWeight: FontWeight.bold)),
         const SizedBox(height: 4),
-        Text(
-          time,
-          style: const TextStyle(
-            color: Colors.white70,
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
+        Text(time, style: const TextStyle(color: Colors.white70, fontSize: 14, fontWeight: FontWeight.w600)),
       ],
     );
   }
@@ -455,30 +380,10 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       mainAxisSpacing: 16,
       childAspectRatio: 1.4,
       children: [
-        _bentoCard(
-          "Today Shift",
-          attendance?['display_shift'] ?? "--",
-          Icons.watch_later_outlined,
-          Colors.purpleAccent,
-        ),
-        _bentoCard(
-          "Today Late",
-          attendance?['display_late'] ?? "00:00:00",
-          Icons.history_toggle_off_rounded,
-          Colors.redAccent,
-        ),
-        _bentoCard(
-          "Monthly Late",
-          "${attendance?['month_late_count'] ?? 0}",
-          Icons.calendar_today_outlined,
-          Colors.orangeAccent,
-        ),
-        _bentoCard(
-          "Overtime",
-          attendance?['month_overtime'] ?? "00:00:00",
-          Icons.bolt_rounded,
-          Colors.greenAccent,
-        ),
+        _bentoCard("Today Shift", attendance?['display_shift'] ?? "--", Icons.watch_later_outlined, Colors.purpleAccent),
+        _bentoCard("Today Late", attendance?['display_late'] ?? "00:00:00", Icons.history_toggle_off_rounded, Colors.redAccent),
+        _bentoCard("Monthly Late", "${attendance?['month_late_count'] ?? 0}", Icons.calendar_today_outlined, Colors.orangeAccent),
+        _bentoCard("Overtime", attendance?['month_overtime'] ?? "00:00:00", Icons.bolt_rounded, Colors.greenAccent),
       ],
     );
   }
@@ -499,19 +404,9 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                value,
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 15,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
+              Text(value, style: const TextStyle(color: Colors.white, fontSize: 15, fontWeight: FontWeight.bold)),
               const SizedBox(height: 2),
-              Text(
-                label,
-                style: TextStyle(color: Colors.white38, fontSize: 10),
-              ),
+              Text(label, style: const TextStyle(color: Colors.white38, fontSize: 10)),
             ],
           ),
         ],
@@ -530,34 +425,19 @@ class _AttendanceScreenState extends State<AttendanceScreen>
         height: 65,
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(20),
-          color: isFinished
-              ? Colors.white.withOpacity(0.05)
-              : Colors.transparent,
+          color: isFinished ? Colors.white.withOpacity(0.05) : Colors.transparent,
           border: Border.all(
-            color: isFinished
-                ? Colors.transparent
-                : (inTime ? Colors.redAccent : Colors.blueAccent),
+            color: isFinished ? Colors.transparent : (inTime ? Colors.redAccent : Colors.blueAccent),
             width: 1.5,
           ),
         ),
         child: Center(
           child: isLoading
-              ? const SizedBox(
-                  width: 20,
-                  height: 20,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    color: Colors.white,
-                  ),
-                )
+              ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
               : Text(
-                  !inTime
-                      ? "START CHECK IN"
-                      : (outTime ? "SHIFT FINISHED" : "FINISH CHECK OUT"),
+                  !inTime ? "START CHECK IN" : (outTime ? "SHIFT FINISHED" : "FINISH CHECK OUT"),
                   style: TextStyle(
-                    color: !inTime
-                        ? Colors.blueAccent
-                        : (outTime ? Colors.white24 : Colors.redAccent),
+                    color: !inTime ? Colors.blueAccent : (outTime ? Colors.white24 : Colors.redAccent),
                     fontWeight: FontWeight.bold,
                     letterSpacing: 1.5,
                     fontSize: 14,
@@ -573,40 +453,19 @@ class _AttendanceScreenState extends State<AttendanceScreen>
       context: context,
       builder: (context) => AlertDialog(
         backgroundColor: const Color(0xFF0F172A),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
-          side: const BorderSide(color: Colors.white10),
-        ),
-        title: const Text(
-          "Logout",
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
-        ),
-        content: const Text(
-          "Are you sure you want to logout from Atom Soft?",
-          style: TextStyle(color: Colors.white60),
-        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24), side: const BorderSide(color: Colors.white10)),
+        title: const Text("Logout", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+        content: const Text("Are you sure you want to logout?", style: TextStyle(color: Colors.white60)),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Cancel"),
-          ),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("Cancel")),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.redAccent,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
             onPressed: () async {
               final prefs = await SharedPreferences.getInstance();
               await prefs.clear();
               _timer?.cancel();
               if (!mounted) return;
-              Navigator.pushAndRemoveUntil(
-                context,
-                MaterialPageRoute(builder: (context) => const LoginScreen()),
-                (route) => false,
-              );
+              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (context) => const LoginScreen()), (route) => false);
             },
             child: const Text("Logout", style: TextStyle(color: Colors.white)),
           ),
