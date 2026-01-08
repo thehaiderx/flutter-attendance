@@ -1,3 +1,4 @@
+import 'package:atom_attendance/layout/support_footer.dart';
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +12,8 @@ class LoginScreen extends StatefulWidget {
   _LoginScreenState createState() => _LoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStateMixin {
+class _LoginScreenState extends State<LoginScreen>
+    with SingleTickerProviderStateMixin {
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
   bool isLoading = false;
@@ -59,7 +61,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         await prefs.setString('auth_user', jsonEncode(data['user']));
 
         if (!mounted) return;
-        Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AttendanceScreen()));
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => const AttendanceScreen()),
+        );
       } else {
         _showError("Invalid Email or Password");
       }
@@ -72,7 +77,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.redAccent, behavior: SnackBarBehavior.floating),
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.redAccent,
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 
@@ -128,7 +137,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       child: TextField(
                         controller: _emailController,
                         style: const TextStyle(color: Colors.white),
-                        decoration: _inputDecoration("Email or Phone", Icons.alternate_email_rounded),
+                        decoration: _inputDecoration(
+                          "Email or Phone",
+                          Icons.alternate_email_rounded,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 20),
@@ -137,7 +149,11 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                         controller: _passwordController,
                         obscureText: !isPasswordVisible,
                         style: const TextStyle(color: Colors.white),
-                        decoration: _inputDecoration("Password", Icons.lock_outline_rounded, isPass: true),
+                        decoration: _inputDecoration(
+                          "Password",
+                          Icons.lock_outline_rounded,
+                          isPass: true,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 40),
@@ -158,15 +174,26 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               color: Colors.blueAccent.withOpacity(0.3),
                               blurRadius: 20,
                               offset: const Offset(0, 10),
-                            )
+                            ),
                           ],
                         ),
                         child: Center(
                           child: isLoading
-                              ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                              ? const SizedBox(
+                                  width: 24,
+                                  height: 24,
+                                  child: CircularProgressIndicator(
+                                    color: Colors.white,
+                                    strokeWidth: 2,
+                                  ),
+                                )
                               : const Text(
                                   "LOGIN TO PORTAL",
-                                  style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1.5),
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontWeight: FontWeight.bold,
+                                    letterSpacing: 1.5,
+                                  ),
                                 ),
                         ),
                       ),
@@ -174,7 +201,10 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                     const SizedBox(height: 30),
                     Text(
                       "v1.0.2 • Powered by Atom Soft",
-                      style: TextStyle(color: Colors.white.withOpacity(0.2), fontSize: 10),
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.2),
+                        fontSize: 10,
+                      ),
                     ),
                   ],
                 ),
@@ -183,6 +213,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
           ),
         ],
       ),
+      bottomNavigationBar: const SupportFooter(),
     );
   }
 
@@ -193,9 +224,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         padding: const EdgeInsets.all(20),
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          border: Border.all(color: Colors.blueAccent.withOpacity(0.2), width: 1),
+          border: Border.all(
+            color: Colors.blueAccent.withOpacity(0.2),
+            width: 1,
+          ),
         ),
-        child: const Icon(Icons.webhook_rounded, size: 60, color: Colors.blueAccent),
+        child: const Icon(
+          Icons.webhook_rounded,
+          size: 60,
+          color: Colors.blueAccent,
+        ),
       ),
     );
   }
@@ -222,15 +260,28 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
   }
 
-  InputDecoration _inputDecoration(String label, IconData icon, {bool isPass = false}) {
+  InputDecoration _inputDecoration(
+    String label,
+    IconData icon, {
+    bool isPass = false,
+  }) {
     return InputDecoration(
       labelText: label,
       labelStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-      prefixIcon: Icon(icon, color: Colors.blueAccent.withOpacity(0.6), size: 20),
+      prefixIcon: Icon(
+        icon,
+        color: Colors.blueAccent.withOpacity(0.6),
+        size: 20,
+      ),
       suffixIcon: isPass
           ? IconButton(
-              icon: Icon(isPasswordVisible ? Icons.visibility : Icons.visibility_off, color: Colors.white24, size: 18),
-              onPressed: () => setState(() => isPasswordVisible = !isPasswordVisible),
+              icon: Icon(
+                isPasswordVisible ? Icons.visibility : Icons.visibility_off,
+                color: Colors.white24,
+                size: 18,
+              ),
+              onPressed: () =>
+                  setState(() => isPasswordVisible = !isPasswordVisible),
             )
           : null,
       border: InputBorder.none,

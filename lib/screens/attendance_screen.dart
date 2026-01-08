@@ -1,3 +1,4 @@
+import 'package:atom_attendance/layout/support_footer.dart';
 import 'package:flutter/material.dart';
 import 'dart:async';
 import 'dart:convert';
@@ -270,6 +271,7 @@ class _AttendanceScreenState extends State<AttendanceScreen>
           ),
         ],
       ),
+      bottomNavigationBar: const SupportFooter(),
     );
   }
 
