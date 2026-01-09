@@ -3,7 +3,6 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'screens/login_screen.dart';
 import 'screens/attendance_screen.dart';
 // 1. Footer wali file import karein
-import 'layout/support_footer.dart'; 
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

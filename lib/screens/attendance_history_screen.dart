@@ -204,7 +204,7 @@ class _AttendanceHistoryScreenState extends State<AttendanceHistoryScreen> {
           : null,
       label: Text(label,
           style: const TextStyle(color: Colors.white70, fontSize: 11)),
-      shape: StadiumBorder(side: BorderSide(color: Colors.white10)),
+      shape: const StadiumBorder(side: BorderSide(color: Colors.white10)),
     );
   }
 
